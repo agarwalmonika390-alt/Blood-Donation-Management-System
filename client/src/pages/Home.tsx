@@ -9,7 +9,7 @@ import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
 import EditDonorDialog from "@/components/EditDonorDialog";
 import { type Donor, type InsertDonor } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, storage } from "@/lib/queryClient";
 
 export default function Home() {
   const { toast } = useToast();
@@ -21,7 +21,8 @@ export default function Home() {
 
   // Fetch all donors
   const { data: donors = [], isLoading } = useQuery<Donor[]>({
-    queryKey: ["/api/donors"],
+    queryKey: ["donors"],
+    queryFn: () => storage.getAllDonors(),
     select: (data) => 
       data.map((donor) => ({
         ...donor,
@@ -31,12 +32,9 @@ export default function Home() {
 
   // Create donor mutation
   const createDonorMutation = useMutation({
-    mutationFn: async (data: InsertDonor) => {
-      const res = await apiRequest("POST", "/api/donors", data);
-      return await res.json();
-    },
+    mutationFn: (data: InsertDonor) => storage.createDonor(data),
     onSuccess: (newDonor: Donor) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/donors"] });
+      queryClient.invalidateQueries({ queryKey: ["donors"] });
       toast({
         title: "Success!",
         description: `${newDonor.name} has been registered as a donor.`,
@@ -53,12 +51,9 @@ export default function Home() {
 
   // Update donor mutation
   const updateDonorMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: InsertDonor }) => {
-      const res = await apiRequest("PUT", `/api/donors/${id}`, data);
-      return await res.json();
-    },
+    mutationFn: ({ id, ...data }: InsertDonor & { id: string }) => storage.updateDonor(id, data),
     onSuccess: (updatedDonor: Donor) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/donors"] });
+      queryClient.invalidateQueries({ queryKey: ["donors"] });
       setEditDialogOpen(false);
       setSelectedDonor(null);
       toast({
@@ -75,13 +70,11 @@ export default function Home() {
     },
   });
 
-  // Delete donor mutation
+    // Delete donor mutation
   const deleteDonorMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/donors/${id}`);
-    },
+    mutationFn: (id: string) => storage.deleteDonor(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/donors"] });
+      queryClient.invalidateQueries({ queryKey: ["donors"] });
       setDeleteDialogOpen(false);
       toast({
         title: "Deleted",
@@ -130,7 +123,7 @@ export default function Home() {
 
   const handleEditDonor = (data: InsertDonor) => {
     if (!selectedDonor) return;
-    updateDonorMutation.mutate({ id: selectedDonor.id, data });
+    updateDonorMutation.mutate({ id: selectedDonor.id, ...data });
   };
 
   const handleDeleteClick = (id: string) => {
