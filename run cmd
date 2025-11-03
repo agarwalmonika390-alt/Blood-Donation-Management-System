@@ -1,0 +1,1 @@
+ $env:NODE_ENV="development"; cmd /c "node_modules\.bin\tsx server/index.ts"
